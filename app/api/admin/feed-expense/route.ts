@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Calculate Quarterly Expenses
     const quarterlyExpenses = quarters.map((quarter) => {
       const expensesInQuarter = feedData
-        .filter((log) => {
+        .filter((log: any) => {
           const logDate = new Date(log.datePurchased);
           return (
             logDate >= new Date(quarter.start) &&
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
           );
         })
         .reduce(
-          (total, log) =>
+          (total: any, log: any) =>
             total + (log.cost.toNumber() * log.bagsPurchased || 0),
           0
         );
@@ -65,27 +65,29 @@ export async function GET(request: NextRequest) {
     });
 
     // Filter records for the specified month
-    const monthlyRecords = feedData.filter((log) => {
+    const monthlyRecords = feedData.filter((log: any) => {
       const logDate = new Date(log.datePurchased);
       const logMonth = logDate.toISOString().slice(0, 7); // Format: YYYY-MM
       return logMonth === month;
     });
 
     // Filter records for the year
-    const yearlyRecords = feedData.filter((log) => {
+    const yearlyRecords = feedData.filter((log: any) => {
       const logDate = new Date(log.datePurchased);
       return logDate.getFullYear() === Number(year);
     });
 
     // Calculate Monthly Expenses
     const monthlyExpenses = monthlyRecords.reduce(
-      (total, log) => total + (log.cost.toNumber() * log.bagsPurchased || 0),
+      (total: any, log: any) =>
+        total + (log.cost.toNumber() * log.bagsPurchased || 0),
       0
     );
 
     // Calculate Yearly Expenses
     const yearlyExpenses = yearlyRecords.reduce(
-      (total, log) => total + (log.cost.toNumber() * log.bagsPurchased || 0),
+      (total: any, log: any) =>
+        total + (log.cost.toNumber() * log.bagsPurchased || 0),
       0
     );
 
