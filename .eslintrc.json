@@ -1,3 +1,13 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "warn", // Warn instead of error for 'any'
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ], // Ignore variables starting with '_'
+    "react/jsx-key": "warn", // Warn when `key` is missing in lists
+    "no-console": ["warn", { "allow": ["warn", "error"] }], // Allow console.warn and console.error
+    "react/react-in-jsx-scope": "off" // Not needed for Next.js
+  }
 }
