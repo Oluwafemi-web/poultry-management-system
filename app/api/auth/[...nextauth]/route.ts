@@ -13,7 +13,7 @@ interface User {
 }
 
 // Define auth options
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
