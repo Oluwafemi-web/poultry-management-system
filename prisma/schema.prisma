@@ -1,0 +1,90 @@
+// schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String
+  createdAt DateTime @default(now())
+}
+
+model FeedInventory {
+  id                  Int      @id @default(autoincrement())
+  feedType            String
+  bagsAvailable      Int
+  cost               Decimal
+  date               DateTime @default(now())
+  datePurchased      DateTime
+  formattedDate      String
+  bagsUsed           Int
+  bagsPurchased      Int      @default(0)
+  totalBagsUsed      Int      @default(0)
+  totalBagsPurchased Int      @default(0)
+}
+
+model EggsInventory {
+  id                Int             @id @default(autoincrement())
+  quantity          Int
+  dateCollected     DateTime
+  formattedDate      String
+  crates            Int             @default(0)
+  pricePerCrate     Decimal
+  cratesAvailable   Int             @default(0)
+  eggsSales         EggsSales[]     @relation("EggsSalesInventory") // Added this line
+}
+
+model EggsSales {
+  id                  Int             @id @default(autoincrement())
+  eggsInventoryId     Int
+  cratesSold          Int
+  totalSaleAmount     Decimal
+  dateSold            DateTime        @default(now())
+  formattedDate      String
+  cratesAvailableBefore Int
+  cratesAvailableAfter  Int
+  eggsInventory       EggsInventory   @relation("EggsSalesInventory", fields: [eggsInventoryId], references: [id])
+}
+
+model BirdLog {
+  id             Int           @id @default(autoincrement())
+  date           DateTime      @default(now())
+  formattedDate  String
+  mortality      Int           @default(0) // Number of bird mortalities
+  birdsBought    Int           @default(0) // Number of birds bought
+  birdsAvailable Int           @default(0) // Number of birds currently available
+  birdExpense    BirdExpense[] // Relation to BirdExpense
+}
+
+model BirdExpense {
+  id        Int       @id @default(autoincrement())
+  date      DateTime  @default(now())
+  formattedDate      String
+  price     Float     // Price for the new set of birds
+  amount    Int       // Number of birds bought
+  birdLogId Int       // Foreign key to BirdLog
+  birdLog   BirdLog   @relation(fields: [birdLogId], references: [id], onDelete: Cascade)
+}
+
+
+
+model Worker {
+  id          Int      @id @default(autoincrement())
+  name        String
+  salary      Decimal
+  dateHired   DateTime @default(now())
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+
