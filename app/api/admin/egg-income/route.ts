@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
             logDate <= new Date(quarter.end)
           );
         })
-        .reduce((total, log) => total + log.totalSaleAmount.toNumber(), 0);
+        .reduce(
+          (total: any, log: any) => total + log.totalSaleAmount.toNumber(),
+          0
+        );
 
       return {
         quarter: `${quarter.start.split("-")[1]}-${quarter.end.split("-")[1]}`,
