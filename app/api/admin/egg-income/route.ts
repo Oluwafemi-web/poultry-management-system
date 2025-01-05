@@ -59,14 +59,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Filter records for the specified month
-    const monthlyRecords = incomeData.filter((log) => {
+    const monthlyRecords = incomeData.filter((log: any) => {
       const logDate = new Date(log.dateSold);
       const logMonth = logDate.toISOString().slice(0, 7); // Format: YYYY-MM
       return logMonth === month;
     });
 
     // Filter records for the current year
-    const yearlyRecords = incomeData.filter((log) => {
+    const yearlyRecords = incomeData.filter((log: any) => {
       const logDate = new Date(log.dateSold);
       return logDate.getFullYear() === currentYear;
     });
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate Monthly Income
-    const monthlyIncome = monthlyRecords.reduce((total, log) => {
+    const monthlyIncome = monthlyRecords.reduce((total: any, log: any) => {
       const saleAmount = log.totalSaleAmount
         ? log.totalSaleAmount.toNumber()
         : 0; // Ensure safe check for nullable values
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     }, 0);
 
     // Calculate Yearly Income
-    const yearlyIncome = yearlyRecords.reduce((total, log) => {
+    const yearlyIncome = yearlyRecords.reduce((total: any, log: any) => {
       const saleAmount = log.totalSaleAmount
         ? log.totalSaleAmount.toNumber()
         : 0;
