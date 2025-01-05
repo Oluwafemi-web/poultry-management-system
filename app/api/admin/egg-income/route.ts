@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     const quarterlyIncome = quarters.map((quarter) => {
       const incomeInQuarter = incomeData
-        .filter((log) => {
+        .filter((log: any) => {
           const logDate = new Date(log.dateSold);
           return (
             logDate >= new Date(quarter.start) &&
