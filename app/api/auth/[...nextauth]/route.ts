@@ -32,7 +32,6 @@ const authOptions: NextAuthOptions = {
             email: credentials.email,
           },
         });
-
         // If the user is found and the password matches
         if (
           user &&
@@ -44,7 +43,7 @@ const authOptions: NextAuthOptions = {
             role: user.role,
           }; // Return user object without password
         }
-
+        console.log("access to db denied");
         return null; // Return null if user not found or password does not match
       },
     }),
