@@ -73,7 +73,15 @@ export async function GET() {
         const delta =
           ((curr.profit - prev.profit) / Math.abs(prev.profit)) * 100;
         const dir = delta >= 0 ? "up" : "down";
-        insight = `Profit is ${dir} ${Math.abs(delta).toFixed(0)}% vs last month — ${curr.profit >= 0 ? "you're ahead" : "costs are outrunning sales"}.`;
+        const tail =
+          delta >= 0
+            ? curr.profit >= 0
+              ? "you're ahead"
+              : "losses are shrinking"
+            : curr.profit >= 0
+              ? "behind last month"
+              : "costs are outrunning sales";
+        insight = `Profit is ${dir} ${Math.abs(delta).toFixed(0)}% vs last month — ${tail}.`;
       } else if (curr.revenue > 0 || curr.expenses > 0) {
         insight = `This month: ₦${curr.revenue.toLocaleString()} in, ₦${curr.expenses.toLocaleString()} out.`;
       }
