@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 function naira(n: number) {
   return `₦${Number(n).toLocaleString()}`;
@@ -14,7 +15,7 @@ export default function MarketplacePage() {
   const [category, setCategory] = useState("");
   const [products, setProducts] = useState<any[]>([]);
   const [cartCount, setCartCount] = useState(0);
-  const [message, setMessage] = useState("");
+  const [addingId, setAddingId] = useState<number | null>(null);
 
   async function loadProducts() {
     const params = new URLSearchParams();
@@ -43,17 +44,27 @@ export default function MarketplacePage() {
 
   async function addToCart(productId: number) {
     if (!session?.user) {
-      setMessage("Sign in to add items to cart");
+      toast.error("Sign in to add items to cart");
       return;
     }
-    const res = await fetch("/api/marketplace/cart", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, quantity: 1 }),
-    });
-    if (res.ok) {
-      setMessage("Added to cart");
+    setAddingId(productId);
+    try {
+      const res = await fetch("/api/marketplace/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, quantity: 1 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not add to cart");
+        return;
+      }
+      toast.success("Added to cart");
       loadCart();
+    } catch {
+      toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   }
 
@@ -62,7 +73,10 @@ export default function MarketplacePage() {
       <header className="border-b bg-white">
         <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between gap-4">
           <div>
-            <Link href="/" className="font-display text-lg tracking-tight text-as-forest">
+            <Link
+              href="/"
+              className="font-display text-lg tracking-tight text-as-forest"
+            >
               AgroSolve
             </Link>
             <p className="text-xs text-stone-500">Agricultural marketplace</p>
@@ -122,8 +136,6 @@ export default function MarketplacePage() {
           </button>
         </div>
 
-        {message && <p className="mt-3 text-sm text-emerald-800">{message}</p>}
-
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((p) => (
             <article
@@ -150,9 +162,10 @@ export default function MarketplacePage() {
               </Link>
               <button
                 onClick={() => addToCart(p.id)}
-                className="mt-4 rounded-lg bg-emerald-800 text-white px-3 py-2 text-sm"
+                disabled={addingId !== null}
+                className="mt-4 rounded-lg bg-emerald-800 text-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Add to cart
+                {addingId === p.id ? "Adding…" : "Add to cart"}
               </button>
             </article>
           ))}

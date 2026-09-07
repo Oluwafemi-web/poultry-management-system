@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Syne, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { NextAuthProvider } from "./utils/provider";
+import { Toaster } from "./components/Toaster";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -31,7 +32,10 @@ export default function RootLayout({
       <body
         className={`${syne.variable} ${sourceSans.variable} font-sans antialiased bg-[var(--as-paper)] text-[var(--as-ink)]`}
       >
-        <NextAuthProvider>{children}</NextAuthProvider>
+        <NextAuthProvider>
+          {children}
+          <Toaster />
+        </NextAuthProvider>
       </body>
     </html>
   );

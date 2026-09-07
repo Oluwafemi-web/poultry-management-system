@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Item = {
   id: number;
@@ -12,21 +13,25 @@ type Item = {
   unitCost: string | number;
 };
 
+const emptyForm = {
+  type: "FEED",
+  name: "",
+  unit: "",
+  quantity: "",
+  lowStockThreshold: "",
+  unitCost: "",
+};
+
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [filter, setFilter] = useState("");
-  const [form, setForm] = useState({
-    type: "FEED",
-    name: "",
-    unit: "kg",
-    quantity: 0,
-    lowStockThreshold: 50,
-    unitCost: 0,
-  });
+  const [creating, setCreating] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [form, setForm] = useState(emptyForm);
   const [txn, setTxn] = useState({
     itemId: "",
     txnType: "USAGE",
-    quantity: 0,
+    quantity: "",
   });
 
   async function load() {
@@ -42,28 +47,64 @@ export default function InventoryPage() {
 
   async function createItem(e: FormEvent) {
     e.preventDefault();
-    await fetch("/api/farm/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setForm({ ...form, name: "", quantity: 0 });
-    load();
+    setCreating(true);
+    try {
+      const res = await fetch("/api/farm/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: form.type,
+          name: form.name,
+          unit: form.unit,
+          quantity: form.quantity === "" ? 0 : Number(form.quantity),
+          lowStockThreshold:
+            form.lowStockThreshold === ""
+              ? 50
+              : Number(form.lowStockThreshold),
+          unitCost: form.unitCost === "" ? 0 : Number(form.unitCost),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not add item");
+        return;
+      }
+      toast.success("Item added");
+      setForm(emptyForm);
+      load();
+    } catch {
+      toast.error("Could not add item");
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function adjust(e: FormEvent) {
     e.preventDefault();
-    await fetch("/api/farm/inventory", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        itemId: Number(txn.itemId),
-        txnType: txn.txnType,
-        quantity: Number(txn.quantity),
-      }),
-    });
-    setTxn({ itemId: "", txnType: "USAGE", quantity: 0 });
-    load();
+    setAdjusting(true);
+    try {
+      const res = await fetch("/api/farm/inventory", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: Number(txn.itemId),
+          txnType: txn.txnType,
+          quantity: Number(txn.quantity),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not update stock");
+        return;
+      }
+      toast.success("Stock updated");
+      setTxn({ itemId: "", txnType: "USAGE", quantity: "" });
+      load();
+    } catch {
+      toast.error("Could not update stock");
+    } finally {
+      setAdjusting(false);
+    }
   }
 
   return (
@@ -110,7 +151,11 @@ export default function InventoryPage() {
                     {i.quantity} {i.unit}
                   </td>
                   <td className="px-4 py-2">
-                    <span className={low ? "text-amber-700 font-medium" : "text-emerald-700"}>
+                    <span
+                      className={
+                        low ? "text-amber-700 font-medium" : "text-emerald-700"
+                      }
+                    >
                       {low ? "Low" : "Good"}
                     </span>
                   </td>
@@ -122,12 +167,16 @@ export default function InventoryPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <form onSubmit={createItem} className="rounded-xl border bg-white p-4 space-y-3">
+        <form
+          onSubmit={createItem}
+          className="rounded-xl border bg-white p-4 space-y-3"
+        >
           <h2 className="font-medium">Add item</h2>
           <select
             className="w-full rounded-lg border px-3 py-2"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
+            disabled={creating}
           >
             {["FEED", "MEDICINE", "EQUIPMENT", "OTHER"].map((t) => (
               <option key={t}>{t}</option>
@@ -139,36 +188,46 @@ export default function InventoryPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
+            disabled={creating}
           />
           <div className="grid grid-cols-2 gap-2">
             <input
               className="rounded-lg border px-3 py-2"
-              placeholder="Unit"
+              placeholder="Unit (e.g. kg)"
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
+              required
+              disabled={creating}
             />
             <input
               type="number"
               className="rounded-lg border px-3 py-2"
               placeholder="Qty"
               value={form.quantity}
-              onChange={(e) =>
-                setForm({ ...form, quantity: Number(e.target.value) })
-              }
+              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              disabled={creating}
             />
           </div>
-          <button className="rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm">
-            Save
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {creating ? "Saving…" : "Save"}
           </button>
         </form>
 
-        <form onSubmit={adjust} className="rounded-xl border bg-white p-4 space-y-3">
+        <form
+          onSubmit={adjust}
+          className="rounded-xl border bg-white p-4 space-y-3"
+        >
           <h2 className="font-medium">Record usage / purchase</h2>
           <select
             className="w-full rounded-lg border px-3 py-2"
             value={txn.itemId}
             onChange={(e) => setTxn({ ...txn, itemId: e.target.value })}
             required
+            disabled={adjusting}
           >
             <option value="">Select item…</option>
             {items.map((i) => (
@@ -181,6 +240,7 @@ export default function InventoryPage() {
             className="w-full rounded-lg border px-3 py-2"
             value={txn.txnType}
             onChange={(e) => setTxn({ ...txn, txnType: e.target.value })}
+            disabled={adjusting}
           >
             <option value="USAGE">Usage</option>
             <option value="PURCHASE">Purchase</option>
@@ -189,14 +249,18 @@ export default function InventoryPage() {
           <input
             type="number"
             className="w-full rounded-lg border px-3 py-2"
+            placeholder="Quantity"
             value={txn.quantity}
-            onChange={(e) =>
-              setTxn({ ...txn, quantity: Number(e.target.value) })
-            }
+            onChange={(e) => setTxn({ ...txn, quantity: e.target.value })}
             required
+            disabled={adjusting}
           />
-          <button className="rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm">
-            Apply
+          <button
+            type="submit"
+            disabled={adjusting}
+            className="rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {adjusting ? "Applying…" : "Apply"}
           </button>
         </form>
       </div>

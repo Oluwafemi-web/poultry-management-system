@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 function naira(n: number) {
   return `₦${Number(n).toLocaleString()}`;
@@ -10,7 +11,8 @@ function naira(n: number) {
 export default function CartPage() {
   const [cart, setCart] = useState<any>(null);
   const [total, setTotal] = useState(0);
-  const [message, setMessage] = useState("");
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
   async function load() {
     const res = await fetch("/api/marketplace/cart");
@@ -26,21 +28,41 @@ export default function CartPage() {
   }, []);
 
   async function remove(productId: number) {
-    await fetch(`/api/marketplace/cart?productId=${productId}`, {
-      method: "DELETE",
-    });
-    load();
+    setRemovingId(productId);
+    try {
+      const res = await fetch(`/api/marketplace/cart?productId=${productId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Could not remove item");
+        return;
+      }
+      toast.success("Item removed");
+      load();
+    } catch {
+      toast.error("Could not remove item");
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   async function checkout() {
-    const res = await fetch("/api/marketplace/orders", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error || "Checkout failed");
-      return;
+    setCheckingOut(true);
+    try {
+      const res = await fetch("/api/marketplace/orders", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Checkout failed");
+        return;
+      }
+      toast.success(`Order #${data.order.id} confirmed`);
+      load();
+    } catch {
+      toast.error("Checkout failed");
+    } finally {
+      setCheckingOut(false);
     }
-    setMessage(`Order #${data.order.id} confirmed`);
-    load();
   }
 
   return (
@@ -61,9 +83,10 @@ export default function CartPage() {
               </div>
               <button
                 onClick={() => remove(i.productId)}
-                className="text-sm text-red-700"
+                disabled={removingId !== null || checkingOut}
+                className="text-sm text-red-700 disabled:opacity-60"
               >
-                Remove
+                {removingId === i.productId ? "Removing…" : "Remove"}
               </button>
             </li>
           ))}
@@ -75,13 +98,12 @@ export default function CartPage() {
           <p className="font-semibold">Total: {naira(total)}</p>
           <button
             onClick={checkout}
-            disabled={!cart?.items?.length}
+            disabled={!cart?.items?.length || checkingOut}
             className="rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm disabled:opacity-50"
           >
-            Place order
+            {checkingOut ? "Placing order…" : "Place order"}
           </button>
         </div>
-        {message && <p className="mt-3 text-sm text-emerald-800">{message}</p>}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const TYPES = [
   "FEED",
@@ -19,6 +20,7 @@ export default function ActivitiesPage() {
   const [activities, setActivities] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     type: "FEED",
     batchId: "",
@@ -54,31 +56,44 @@ export default function ActivitiesPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    await fetch("/api/farm/activities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: form.type,
-        batchId: form.batchId ? Number(form.batchId) : undefined,
-        quantity: form.quantity ? Number(form.quantity) : undefined,
-        notes: form.notes,
-        inventoryItemId: form.inventoryItemId
-          ? Number(form.inventoryItemId)
-          : undefined,
-        payload: form.revenue
-          ? { revenue: Number(form.revenue) }
-          : undefined,
-      }),
-    });
-    setForm({
-      type: "FEED",
-      batchId: "",
-      quantity: "",
-      notes: "",
-      inventoryItemId: "",
-      revenue: "",
-    });
-    load();
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/farm/activities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: form.type,
+          batchId: form.batchId ? Number(form.batchId) : undefined,
+          quantity: form.quantity ? Number(form.quantity) : undefined,
+          notes: form.notes,
+          inventoryItemId: form.inventoryItemId
+            ? Number(form.inventoryItemId)
+            : undefined,
+          payload: form.revenue
+            ? { revenue: Number(form.revenue) }
+            : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not save activity");
+        return;
+      }
+      toast.success("Activity saved");
+      setForm({
+        type: "FEED",
+        batchId: "",
+        quantity: "",
+        notes: "",
+        inventoryItemId: "",
+        revenue: "",
+      });
+      load();
+    } catch {
+      toast.error("Could not save activity");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -100,6 +115,7 @@ export default function ActivitiesPage() {
             className="mt-1 w-full rounded-lg border px-3 py-2"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
+            disabled={submitting}
           >
             {TYPES.map((t) => (
               <option key={t}>{t}</option>
@@ -112,6 +128,7 @@ export default function ActivitiesPage() {
             className="mt-1 w-full rounded-lg border px-3 py-2"
             value={form.batchId}
             onChange={(e) => setForm({ ...form, batchId: e.target.value })}
+            disabled={submitting}
           >
             <option value="">None</option>
             {batches.map((b) => (
@@ -126,8 +143,10 @@ export default function ActivitiesPage() {
           <input
             type="number"
             className="mt-1 w-full rounded-lg border px-3 py-2"
+            placeholder="e.g. 50"
             value={form.quantity}
             onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+            disabled={submitting}
           />
         </label>
         {form.type === "FEED" && (
@@ -139,6 +158,7 @@ export default function ActivitiesPage() {
               onChange={(e) =>
                 setForm({ ...form, inventoryItemId: e.target.value })
               }
+              disabled={submitting}
             >
               <option value="">Select…</option>
               {inventory.map((i) => (
@@ -155,8 +175,10 @@ export default function ActivitiesPage() {
             <input
               type="number"
               className="mt-1 w-full rounded-lg border px-3 py-2"
+              placeholder="e.g. 15000"
               value={form.revenue}
               onChange={(e) => setForm({ ...form, revenue: e.target.value })}
+              disabled={submitting}
             />
           </label>
         )}
@@ -164,12 +186,18 @@ export default function ActivitiesPage() {
           Notes
           <input
             className="mt-1 w-full rounded-lg border px-3 py-2"
+            placeholder="Optional notes"
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            disabled={submitting}
           />
         </label>
-        <button className="rounded-lg bg-emerald-800 text-white px-4 py-3 text-sm font-medium sm:col-span-2">
-          Save activity
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-lg bg-emerald-800 text-white px-4 py-3 text-sm font-medium sm:col-span-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Saving…" : "Save activity"}
         </button>
       </form>
 

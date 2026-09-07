@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 function naira(n: number) {
   return `₦${Number(n).toLocaleString()}`;
@@ -12,7 +13,7 @@ export default function LivestockMarketPage() {
   const { data: session } = useSession();
   const [q, setQ] = useState("");
   const [listings, setListings] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
+  const [inquiringId, setInquiringId] = useState<number | null>(null);
 
   async function load() {
     const params = new URLSearchParams();
@@ -28,23 +29,30 @@ export default function LivestockMarketPage() {
 
   async function inquire(listingId: number) {
     if (!session?.user) {
-      setMessage("Sign in to contact the seller");
+      toast.error("Sign in to contact the seller");
       return;
     }
-    const res = await fetch("/api/livestock-market/inquiries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        listingId,
-        body: "Hello, I'm interested in this listing. Is it still available?",
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error || "Failed");
-      return;
+    setInquiringId(listingId);
+    try {
+      const res = await fetch("/api/livestock-market/inquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId,
+          body: "Hello, I'm interested in this listing. Is it still available?",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not send inquiry");
+        return;
+      }
+      toast.success("Inquiry sent to the seller");
+    } catch {
+      toast.error("Could not send inquiry");
+    } finally {
+      setInquiringId(null);
     }
-    setMessage("Inquiry sent to the seller");
   }
 
   return (
@@ -80,7 +88,6 @@ export default function LivestockMarketPage() {
             Search
           </button>
         </div>
-        {message && <p className="mt-3 text-sm text-emerald-800">{message}</p>}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {listings.map((l) => (
@@ -98,9 +105,10 @@ export default function LivestockMarketPage() {
               <p className="text-sm mt-2 text-stone-700">{l.description}</p>
               <button
                 onClick={() => inquire(l.id)}
-                className="mt-3 rounded-lg border px-3 py-1.5 text-sm"
+                disabled={inquiringId !== null}
+                className="mt-3 rounded-lg border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Contact seller
+                {inquiringId === l.id ? "Sending…" : "Contact seller"}
               </button>
             </article>
           ))}

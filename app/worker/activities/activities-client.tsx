@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 const TYPES = [
   "FEED",
@@ -19,7 +20,7 @@ export default function WorkerActivitiesPage() {
   const params = useSearchParams();
   const [batches, setBatches] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     type: params.get("type") || "FEED",
     batchId: "",
@@ -49,27 +50,33 @@ export default function WorkerActivitiesPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setMessage("");
-    const res = await fetch("/api/farm/activities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: form.type,
-        batchId: form.batchId ? Number(form.batchId) : undefined,
-        quantity: form.quantity ? Number(form.quantity) : undefined,
-        notes: form.notes,
-        inventoryItemId: form.inventoryItemId
-          ? Number(form.inventoryItemId)
-          : undefined,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error || "Failed");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/farm/activities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: form.type,
+          batchId: form.batchId ? Number(form.batchId) : undefined,
+          quantity: form.quantity ? Number(form.quantity) : undefined,
+          notes: form.notes,
+          inventoryItemId: form.inventoryItemId
+            ? Number(form.inventoryItemId)
+            : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not save activity");
+        return;
+      }
+      toast.success("Activity saved");
+      setForm({ ...form, quantity: "", notes: "" });
+    } catch {
+      toast.error("Could not save activity");
+    } finally {
+      setSubmitting(false);
     }
-    setMessage("Saved");
-    setForm({ ...form, quantity: "", notes: "" });
   }
 
   return (
@@ -86,6 +93,7 @@ export default function WorkerActivitiesPage() {
             className="mt-1 w-full rounded-xl border px-4 py-3 text-base"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
+            disabled={submitting}
           >
             {TYPES.map((t) => (
               <option key={t}>{t}</option>
@@ -98,6 +106,7 @@ export default function WorkerActivitiesPage() {
             className="mt-1 w-full rounded-xl border px-4 py-3 text-base"
             value={form.batchId}
             onChange={(e) => setForm({ ...form, batchId: e.target.value })}
+            disabled={submitting}
           >
             <option value="">Optional</option>
             {batches.map((b) => (
@@ -112,8 +121,10 @@ export default function WorkerActivitiesPage() {
           <input
             type="number"
             className="mt-1 w-full rounded-xl border px-4 py-3 text-base"
+            placeholder="e.g. 50"
             value={form.quantity}
             onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+            disabled={submitting}
           />
         </label>
         {form.type === "FEED" && (
@@ -125,6 +136,7 @@ export default function WorkerActivitiesPage() {
               onChange={(e) =>
                 setForm({ ...form, inventoryItemId: e.target.value })
               }
+              disabled={submitting}
             >
               <option value="">Select…</option>
               {inventory.map((i) => (
@@ -139,16 +151,19 @@ export default function WorkerActivitiesPage() {
           <span className="text-sm font-medium">Notes</span>
           <input
             className="mt-1 w-full rounded-xl border px-4 py-3 text-base"
+            placeholder="Optional notes"
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            disabled={submitting}
           />
         </label>
-        <button className="w-full rounded-2xl bg-emerald-800 text-white py-4 text-lg font-medium">
-          Save
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-2xl bg-emerald-800 text-white py-4 text-lg font-medium disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Saving…" : "Save"}
         </button>
-        {message && (
-          <p className="text-center text-emerald-800 font-medium">{message}</p>
-        )}
       </form>
     </div>
   );

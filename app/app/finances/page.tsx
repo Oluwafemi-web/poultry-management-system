@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Txn = {
   id: number;
@@ -52,10 +53,7 @@ export default function FinancesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [message, setMessage] = useState<{
-    type: "ok" | "err";
-    text: string;
-  } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/farm/finances?month=${month}`);
@@ -101,7 +99,7 @@ export default function FinancesPage() {
       ...emptyForm,
       date: new Date().toISOString().slice(0, 10),
     });
-    setMessage(null);
+    setFormError(null);
     setModalOpen(true);
   }
 
@@ -112,7 +110,7 @@ export default function FinancesPage() {
 
   async function create(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
+    setFormError(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/farm/finances", {
@@ -128,20 +126,16 @@ export default function FinancesPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage({
-          type: "err",
-          text: data.error || "Could not add transaction",
-        });
+        setFormError(data.error || "Could not add transaction");
         return;
       }
       setModalOpen(false);
-      setMessage({
-        type: "ok",
-        text: `${form.type === "REVENUE" ? "Revenue" : "Expense"} recorded`,
-      });
+      toast.success(
+        `${form.type === "REVENUE" ? "Revenue" : "Expense"} recorded`
+      );
       await load();
     } catch {
-      setMessage({ type: "err", text: "Could not add transaction" });
+      setFormError("Could not add transaction");
     } finally {
       setSubmitting(false);
     }
@@ -188,19 +182,6 @@ export default function FinancesPage() {
           </button>
         </div>
       </div>
-
-      {message && !modalOpen && (
-        <p
-          className={`rounded-xl border px-4 py-2.5 text-sm ${
-            message.type === "ok"
-              ? "border-as-mint/60 bg-as-mint/20 text-as-forest"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-          role="status"
-        >
-          {message.text}
-        </p>
-      )}
 
       <div className="grid gap-3 sm:grid-cols-3">
         {[
@@ -398,7 +379,7 @@ export default function FinancesPage() {
                   min={0}
                   step="0.01"
                   className={fieldClass}
-                  placeholder="0"
+                  placeholder="e.g. 5000"
                   value={form.amount}
                   onChange={(e) =>
                     setForm({ ...form, amount: e.target.value })
@@ -432,9 +413,9 @@ export default function FinancesPage() {
                 />
               </label>
 
-              {message?.type === "err" && modalOpen && (
+              {formError && (
                 <p className="text-sm text-red-600" role="alert">
-                  {message.text}
+                  {formError}
                 </p>
               )}
 

@@ -56,6 +56,7 @@ export default function RegisterPage() {
             <span className="text-stone-700">Full name</span>
             <input
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+              placeholder="Your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -66,6 +67,7 @@ export default function RegisterPage() {
             <input
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
               type="email"
+              placeholder="you@farm.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -76,6 +78,7 @@ export default function RegisterPage() {
             <input
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
               type="password"
+              placeholder="At least 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

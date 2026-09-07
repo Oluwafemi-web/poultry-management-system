@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Payment = {
   id: number;
@@ -39,10 +40,6 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [payingId, setPayingId] = useState<number | null>(null);
-  const [message, setMessage] = useState<{
-    type: "ok" | "err";
-    text: string;
-  } | null>(null);
   const [form, setForm] = useState({
     name: "",
     roleTitle: "",
@@ -76,7 +73,6 @@ export default function EmployeesPage() {
 
   async function create(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/farm/employees", {
@@ -86,10 +82,7 @@ export default function EmployeesPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage({
-          type: "err",
-          text: data.error || "Could not add employee",
-        });
+        toast.error(data.error || "Could not add employee");
         return;
       }
       setForm({
@@ -100,20 +93,16 @@ export default function EmployeesPage() {
         email: "",
         password: "",
       });
-      setMessage({
-        type: "ok",
-        text: `${data.employee?.name || "Employee"} added`,
-      });
+      toast.success(`${data.employee?.name || "Employee"} added`);
       await load();
     } catch {
-      setMessage({ type: "err", text: "Could not add employee" });
+      toast.error("Could not add employee");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function pay(emp: Employee) {
-    setMessage(null);
     setPayingId(emp.id);
     try {
       const res = await fetch("/api/farm/employees", {
@@ -123,20 +112,14 @@ export default function EmployeesPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage({
-          type: "err",
-          text: data.error || "Could not record payment",
-        });
+        toast.error(data.error || "Could not record payment");
         return;
       }
       const amount = data.payment?.amount ?? emp.wage;
-      setMessage({
-        type: "ok",
-        text: `Paid ${naira(amount)} to ${emp.name}`,
-      });
+      toast.success(`Paid ${naira(amount)} to ${emp.name}`);
       await load();
     } catch {
-      setMessage({ type: "err", text: "Could not record payment" });
+      toast.error("Could not record payment");
     } finally {
       setPayingId(null);
     }
@@ -152,19 +135,6 @@ export default function EmployeesPage() {
           Manage workers, wages, and payment history.
         </p>
       </div>
-
-      {message && (
-        <p
-          className={`rounded-xl border px-4 py-2.5 text-sm ${
-            message.type === "ok"
-              ? "border-as-mint/60 bg-as-mint/20 text-as-forest"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-          role="status"
-        >
-          {message.text}
-        </p>
-      )}
 
       <form
         onSubmit={create}
@@ -206,7 +176,7 @@ export default function EmployeesPage() {
               type="number"
               min={0}
               className={`mt-1.5 ${fieldClass}`}
-              placeholder="0"
+              placeholder="e.g. 50000"
               value={form.wage}
               onChange={(e) =>
                 setForm({

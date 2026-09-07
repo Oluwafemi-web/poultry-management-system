@@ -1,24 +1,29 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 function naira(n: number) {
   return `₦${Number(n).toLocaleString()}`;
 }
 
+const emptyForm = {
+  title: "",
+  animalType: "",
+  breed: "",
+  quantity: "",
+  age: "",
+  weight: "",
+  price: "",
+  location: "",
+  description: "",
+};
+
 export default function MyListingsPage() {
   const [listings, setListings] = useState<any[]>([]);
-  const [form, setForm] = useState({
-    title: "",
-    animalType: "Chicken",
-    breed: "",
-    quantity: 100,
-    age: "",
-    weight: "",
-    price: 4000,
-    location: "",
-    description: "",
-  });
+  const [submitting, setSubmitting] = useState(false);
+  const [sellingId, setSellingId] = useState<number | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
   async function load() {
     const res = await fetch("/api/livestock-market/listings?mine=1");
@@ -32,22 +37,52 @@ export default function MyListingsPage() {
 
   async function create(e: FormEvent) {
     e.preventDefault();
-    await fetch("/api/livestock-market/listings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setForm({ ...form, title: "", description: "" });
-    load();
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/livestock-market/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          quantity: Number(form.quantity),
+          price: Number(form.price),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not publish listing");
+        return;
+      }
+      toast.success("Listing published");
+      setForm(emptyForm);
+      load();
+    } catch {
+      toast.error("Could not publish listing");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function markSold(id: number) {
-    await fetch("/api/livestock-market/listings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: "SOLD" }),
-    });
-    load();
+    setSellingId(id);
+    try {
+      const res = await fetch("/api/livestock-market/listings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "SOLD" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Could not update listing");
+        return;
+      }
+      toast.success("Marked as sold");
+      load();
+    } catch {
+      toast.error("Could not update listing");
+    } finally {
+      setSellingId(null);
+    }
   }
 
   return (
@@ -69,58 +104,68 @@ export default function MyListingsPage() {
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           required
+          disabled={submitting}
         />
         <input
           className="rounded-lg border px-3 py-2"
-          placeholder="Animal type"
+          placeholder="Animal type (e.g. Chicken)"
           value={form.animalType}
           onChange={(e) => setForm({ ...form, animalType: e.target.value })}
           required
+          disabled={submitting}
         />
         <input
           className="rounded-lg border px-3 py-2"
           placeholder="Breed"
           value={form.breed}
           onChange={(e) => setForm({ ...form, breed: e.target.value })}
+          disabled={submitting}
         />
         <input
           type="number"
           className="rounded-lg border px-3 py-2"
           placeholder="Quantity"
           value={form.quantity}
-          onChange={(e) =>
-            setForm({ ...form, quantity: Number(e.target.value) })
-          }
+          onChange={(e) => setForm({ ...form, quantity: e.target.value })}
           required
+          disabled={submitting}
         />
         <input
           type="number"
           className="rounded-lg border px-3 py-2"
-          placeholder="Price"
+          placeholder="Price (₦)"
           value={form.price}
-          onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+          onChange={(e) => setForm({ ...form, price: e.target.value })}
           required
+          disabled={submitting}
         />
         <input
           className="rounded-lg border px-3 py-2"
           placeholder="Age"
           value={form.age}
           onChange={(e) => setForm({ ...form, age: e.target.value })}
+          disabled={submitting}
         />
         <input
           className="rounded-lg border px-3 py-2"
           placeholder="Location"
           value={form.location}
           onChange={(e) => setForm({ ...form, location: e.target.value })}
+          disabled={submitting}
         />
         <textarea
           className="rounded-lg border px-3 py-2 md:col-span-2"
           placeholder="Description"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
+          disabled={submitting}
         />
-        <button className="w-fit rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm">
-          Publish listing
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-fit rounded-lg bg-emerald-800 text-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Publishing…" : "Publish listing"}
         </button>
       </form>
 
@@ -138,9 +183,10 @@ export default function MyListingsPage() {
             {l.status === "ACTIVE" && (
               <button
                 onClick={() => markSold(l.id)}
-                className="text-sm rounded-lg border px-3 py-1.5"
+                disabled={sellingId !== null}
+                className="text-sm rounded-lg border px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Mark sold
+                {sellingId === l.id ? "Updating…" : "Mark sold"}
               </button>
             )}
           </li>

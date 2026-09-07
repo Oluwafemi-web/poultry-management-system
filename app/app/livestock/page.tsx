@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Species = {
   id: number;
@@ -83,15 +84,11 @@ export default function LivestockPage() {
   const [submitting, setSubmitting] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [code, setCode] = useState("");
-  const [initialQty, setInitialQty] = useState(100);
+  const [initialQty, setInitialQty] = useState("");
   const [arrivalDate, setArrivalDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
   const [breed, setBreed] = useState("");
-  const [message, setMessage] = useState<{
-    type: "ok" | "err";
-    text: string;
-  } | null>(null);
 
   async function load() {
     const res = await fetch("/api/farm/livestock");
@@ -116,7 +113,6 @@ export default function LivestockPage() {
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
     setSubmitting(true);
     try {
       const res = await fetch("/api/farm/livestock", {
@@ -126,19 +122,22 @@ export default function LivestockPage() {
           categoryId: Number(categoryId),
           code,
           breed,
-          initialQty,
+          initialQty: Number(initialQty),
           arrivalDate,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage({ type: "err", text: data.error || "Could not create batch" });
+        toast.error(data.error || "Could not create batch");
         return;
       }
       setCode("");
       setBreed("");
-      setMessage({ type: "ok", text: "Batch created" });
+      setInitialQty("");
+      toast.success("Batch created");
       await load();
+    } catch {
+      toast.error("Could not create batch");
     } finally {
       setSubmitting(false);
     }
@@ -199,7 +198,7 @@ export default function LivestockPage() {
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               required
-              disabled={loading || categoryOptions.length === 0}
+              disabled={loading || submitting || categoryOptions.length === 0}
             >
               <option value="">
                 {loading
@@ -224,6 +223,7 @@ export default function LivestockPage() {
               onChange={(e) => setCode(e.target.value)}
               placeholder="e.g. BR-002"
               required
+              disabled={submitting}
             />
           </label>
 
@@ -233,9 +233,11 @@ export default function LivestockPage() {
               type="number"
               min={1}
               className={fieldClass}
+              placeholder="e.g. 100"
               value={initialQty}
-              onChange={(e) => setInitialQty(Number(e.target.value))}
+              onChange={(e) => setInitialQty(e.target.value)}
               required
+              disabled={submitting}
             />
           </label>
 
@@ -247,6 +249,7 @@ export default function LivestockPage() {
               value={arrivalDate}
               onChange={(e) => setArrivalDate(e.target.value)}
               required
+              disabled={submitting}
             />
           </label>
 
@@ -258,6 +261,7 @@ export default function LivestockPage() {
               value={breed}
               onChange={(e) => setBreed(e.target.value)}
               placeholder="e.g. Cobb 500, Isa Brown"
+              disabled={submitting}
             />
           </label>
         </div>
@@ -270,16 +274,6 @@ export default function LivestockPage() {
           >
             {submitting ? "Creating…" : "Create batch"}
           </button>
-          {message && (
-            <p
-              className={`text-sm ${
-                message.type === "ok" ? "text-as-moss" : "text-red-600"
-              }`}
-              role="status"
-            >
-              {message.text}
-            </p>
-          )}
         </div>
       </form>
 

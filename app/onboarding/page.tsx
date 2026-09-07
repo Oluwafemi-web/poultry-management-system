@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import {
   ALL_MODULES,
   FARM_TYPES,
@@ -29,7 +30,7 @@ export default function OnboardingPage() {
   const [farmTypes, setFarmTypes] = useState<string[]>(["Poultry"]);
   const [location, setLocation] = useState("");
   const [size, setSize] = useState("");
-  const [workerCount, setWorkerCount] = useState(1);
+  const [workerCount, setWorkerCount] = useState("");
   const [description, setDescription] = useState("");
 
   const [selectedSpecies, setSelectedSpecies] = useState<string[]>(["Chicken"]);
@@ -118,7 +119,8 @@ export default function OnboardingPage() {
           farmTypes,
           location,
           size,
-          workerCount,
+          workerCount:
+            workerCount === "" ? undefined : Number(workerCount),
           description,
           species: selectedSpecies.map((s) => ({
             name: s,
@@ -138,10 +140,12 @@ export default function OnboardingPage() {
       });
       const sessionData = await sessionRes.json();
       await update(sessionData);
+      toast.success("Farm set up successfully");
       router.push("/app");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -174,6 +178,7 @@ export default function OnboardingPage() {
                 Farm name
                 <input
                   className="mt-1 w-full rounded-lg border px-3 py-2"
+                  placeholder="e.g. Green Valley Farm"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -202,6 +207,7 @@ export default function OnboardingPage() {
                 Location
                 <input
                   className="mt-1 w-full rounded-lg border px-3 py-2"
+                  placeholder="e.g. Ibadan, Oyo"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 />
@@ -222,8 +228,9 @@ export default function OnboardingPage() {
                     type="number"
                     min={0}
                     className="mt-1 w-full rounded-lg border px-3 py-2"
+                    placeholder="e.g. 5"
                     value={workerCount}
-                    onChange={(e) => setWorkerCount(Number(e.target.value))}
+                    onChange={(e) => setWorkerCount(e.target.value)}
                   />
                 </label>
               </div>
@@ -232,6 +239,7 @@ export default function OnboardingPage() {
                 <textarea
                   className="mt-1 w-full rounded-lg border px-3 py-2"
                   rows={3}
+                  placeholder="Brief description of your farm"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />

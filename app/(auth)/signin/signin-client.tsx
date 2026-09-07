@@ -8,8 +8,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function SignInPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("owner@farm.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -64,6 +64,7 @@ export default function SignInPage() {
             <input
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
               type="email"
+              placeholder="you@farm.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -74,6 +75,7 @@ export default function SignInPage() {
             <input
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
               type="password"
+              placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
