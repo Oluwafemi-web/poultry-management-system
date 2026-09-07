@@ -2,25 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 import { FarmRole } from "@prisma/client";
 import prisma from "@/app/lib/prisma";
 import { jsonError, requireFarmAccess } from "@/app/lib/auth";
+import {
+  buildMonthlySeries,
+  monthsBackStart,
+  parseLocalDate,
+} from "@/app/lib/finance-charts";
+
+function toIsoDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export async function GET(req: NextRequest) {
   try {
     const user = await requireFarmAccess([FarmRole.OWNER, FarmRole.MANAGER]);
-    const from = req.nextUrl.searchParams.get("from");
-    const to = req.nextUrl.searchParams.get("to");
+    const fromParam = req.nextUrl.searchParams.get("from");
+    const toParam = req.nextUrl.searchParams.get("to");
     const speciesId = req.nextUrl.searchParams.get("speciesId");
     const categoryId = req.nextUrl.searchParams.get("categoryId");
     const batchId = req.nextUrl.searchParams.get("batchId");
 
-    const dateFilter =
-      from || to
-        ? {
-            date: {
-              ...(from ? { gte: new Date(from) } : {}),
-              ...(to ? { lte: new Date(to) } : {}),
-            },
-          }
-        : {};
+    const now = new Date();
+    // Match dashboard: default to last 6 calendar months when no range is set.
+    const defaultFrom = monthsBackStart(5, now);
+    const rangeStart = fromParam
+      ? parseLocalDate(fromParam)
+      : defaultFrom;
+    const rangeEnd = toParam ? parseLocalDate(toParam, true) : now;
+    const chartStart = new Date(
+      rangeStart.getFullYear(),
+      rangeStart.getMonth(),
+      1
+    );
+
+    const dateFilter = {
+      date: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
+    };
 
     const batchWhere = {
       farmId: user.farmId!,
@@ -50,14 +72,10 @@ export async function GET(req: NextRequest) {
         where: {
           type: "USAGE",
           item: { farmId: user.farmId!, type: "FEED" },
-          ...(from || to
-            ? {
-                date: {
-                  ...(from ? { gte: new Date(from) } : {}),
-                  ...(to ? { lte: new Date(to) } : {}),
-                },
-              }
-            : {}),
+          date: {
+            gte: rangeStart,
+            lte: rangeEnd,
+          },
         },
         include: { item: true },
       }),
@@ -98,42 +116,28 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const monthMap = new Map<
-      string,
-      { label: string; revenue: number; expenses: number; profit: number; sort: number }
-    >();
-    for (const f of financials) {
-      const d = new Date(f.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (!monthMap.has(key)) {
-        monthMap.set(key, {
-          label: d.toLocaleString("en", { month: "short", year: "2-digit" }),
-          revenue: 0,
-          expenses: 0,
-          profit: 0,
-          sort: d.getFullYear() * 100 + d.getMonth(),
-        });
-      }
-      const bucket = monthMap.get(key)!;
-      const amount = Number(f.amount);
-      if (f.type === "REVENUE") bucket.revenue += amount;
-      else bucket.expenses += amount;
-      bucket.profit = bucket.revenue - bucket.expenses;
-    }
-    const chartSeries = Array.from(monthMap.values())
-      .sort((a, b) => a.sort - b.sort)
-      .map(({ label, revenue, expenses, profit }) => ({
-        label,
-        revenue,
-        expenses,
-        profit,
-      }));
+    const spanMonths =
+      (rangeEnd.getFullYear() - chartStart.getFullYear()) * 12 +
+      (rangeEnd.getMonth() - chartStart.getMonth());
+    const labelWithYear = spanMonths > 11;
+
+    const chartSeries = buildMonthlySeries(
+      financials,
+      chartStart,
+      rangeEnd,
+      labelWithYear
+    );
 
     return NextResponse.json({
       financial: { revenue, expenses, profit: revenue - expenses },
       livestock: { population, mortality, batches: byBatch },
       feed: { consumed: feedConsumed, cost: feedCost },
       chartSeries,
+      range: {
+        from: toIsoDate(rangeStart),
+        to: toIsoDate(rangeEnd),
+        defaulted: !fromParam && !toParam,
+      },
     });
   } catch (e) {
     return jsonError(e);

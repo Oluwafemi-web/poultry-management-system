@@ -43,7 +43,28 @@ export default function DashboardPage() {
     return <p className="text-red-600">{error}</p>;
   }
   if (!data) {
-    return <p className="text-stone-500">Loading farm overview…</p>;
+    return (
+      <div className="space-y-8" aria-busy="true" aria-label="Loading farm overview">
+        <div>
+          <div className="h-9 w-48 animate-pulse rounded-lg bg-as-line/70" />
+          <div className="mt-3 h-4 w-full max-w-xl animate-pulse rounded-lg bg-as-line/50" />
+          <div className="mt-2 h-4 w-2/3 max-w-md animate-pulse rounded-lg bg-as-line/50" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="border-t-2 border-as-line pt-3">
+              <div className="h-3 w-20 animate-pulse rounded bg-as-line/70" />
+              <div className="mt-2 h-7 w-24 animate-pulse rounded bg-as-line/70" />
+            </div>
+          ))}
+        </div>
+        <div className="h-64 animate-pulse rounded-2xl border border-as-line bg-white" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-48 animate-pulse rounded-2xl border border-as-line bg-white" />
+          <div className="h-48 animate-pulse rounded-2xl border border-as-line bg-white" />
+        </div>
+      </div>
+    );
   }
 
   const metrics = [

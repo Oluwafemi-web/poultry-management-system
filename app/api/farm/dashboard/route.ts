@@ -2,20 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { FarmRole } from "@prisma/client";
 import prisma from "@/app/lib/prisma";
 import { jsonError, requireFarmAccess } from "@/app/lib/auth";
-
-function monthKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthLabel(d: Date) {
-  return d.toLocaleString("en", { month: "short" });
-}
+import {
+  buildMonthlySeries,
+  monthsBackStart,
+} from "@/app/lib/finance-charts";
 
 export async function GET() {
   try {
     const user = await requireFarmAccess();
     const now = new Date();
-    const trendStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const trendStart = monthsBackStart(5, now);
 
     const [batches, inventory, financials, lowStock, upcomingHealth, trendTxns] =
       await Promise.all([
@@ -67,37 +63,15 @@ export async function GET() {
       (i) => i.quantity <= i.lowStockThreshold
     );
 
-    const trendMap = new Map<
-      string,
-      { label: string; revenue: number; expenses: number; profit: number }
-    >();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = monthKey(d);
-      trendMap.set(key, {
-        label: monthLabel(d),
-        revenue: 0,
-        expenses: 0,
-        profit: 0,
-      });
-    }
-    for (const t of trendTxns) {
-      const key = monthKey(new Date(t.date));
-      const bucket = trendMap.get(key);
-      if (!bucket) continue;
-      const amount = Number(t.amount);
-      if (t.type === "REVENUE") bucket.revenue += amount;
-      else bucket.expenses += amount;
-      bucket.profit = bucket.revenue - bucket.expenses;
-    }
-    const chartSeries = Array.from(trendMap.values());
+    const chartSeries = buildMonthlySeries(trendTxns, trendStart, now);
 
     const prev = chartSeries[chartSeries.length - 2];
     const curr = chartSeries[chartSeries.length - 1];
     let insight = "Track revenue and expenses as activity lands this month.";
     if (curr) {
       if (prev && prev.profit !== 0) {
-        const delta = ((curr.profit - prev.profit) / Math.abs(prev.profit)) * 100;
+        const delta =
+          ((curr.profit - prev.profit) / Math.abs(prev.profit)) * 100;
         const dir = delta >= 0 ? "up" : "down";
         insight = `Profit is ${dir} ${Math.abs(delta).toFixed(0)}% vs last month — ${curr.profit >= 0 ? "you're ahead" : "costs are outrunning sales"}.`;
       } else if (curr.revenue > 0 || curr.expenses > 0) {
