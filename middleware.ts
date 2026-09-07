@@ -1,52 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Define restricted paths and roles
-const roleBasedPaths = {
-  admin: ["/admin", "/admin"],
-  worker: ["/worker", "/worker"],
-};
-
-// Secret for JWT (should match the one used in your NextAuth config)
 const secret = process.env.NEXTAUTH_SECRET;
 
-// Middleware to handle role-based access
 export async function middleware(req: NextRequest) {
-  // Extract token from request
+  const { pathname } = req.nextUrl;
+  const method = req.method;
+
+  // Public read endpoints for marketplaces
+  const publicApiGet =
+    method === "GET" &&
+    (pathname === "/api/marketplace/products" ||
+      pathname.startsWith("/api/marketplace/suppliers/") ||
+      (pathname === "/api/livestock-market/listings" &&
+        !req.nextUrl.searchParams.get("mine")));
+
+  if (publicApiGet) {
+    return NextResponse.next();
+  }
+
   const token = await getToken({ req, secret });
 
-  const url = req.nextUrl.pathname;
-
-  // If token is missing or invalid, redirect to the login page
   if (!token) {
-    return NextResponse.redirect(new URL("/", req.url));
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const signIn = new URL("/signin", req.url);
+    signIn.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(signIn);
   }
 
-  // Extract user role from the token
-  const userRole = token.role as "admin" | "worker";
+  const farmRole = token.farmRole as string | null;
+  const onboarded = Boolean(token.onboarded);
 
-  // Allow requests to public or unrestricted pages
-  const unrestrictedPaths = ["/"];
-  if (unrestrictedPaths.includes(url)) {
-    return NextResponse.next();
+  if (
+    (pathname.startsWith("/app") || pathname.startsWith("/worker")) &&
+    !onboarded &&
+    farmRole !== "WORKER"
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", req.url));
   }
 
-  // Validate role-based access
-  const allowedPaths = roleBasedPaths[userRole];
-  if (allowedPaths && allowedPaths.some((path) => url.startsWith(path))) {
-    return NextResponse.next();
+  if (pathname.startsWith("/onboarding") && onboarded) {
+    return NextResponse.redirect(new URL("/app", req.url));
   }
 
-  // Deny access for unauthorized users
-  return NextResponse.redirect(new URL("/", req.url));
+  if (pathname.startsWith("/app") && farmRole === "WORKER") {
+    return NextResponse.redirect(new URL("/worker", req.url));
+  }
+
+  return NextResponse.next();
 }
 
-// Match routes where middleware should be applied
 export const config = {
   matcher: [
-    "/admin/:path*",
+    "/app/:path*",
     "/worker/:path*",
-    "/dashboard/:path*",
-    "/auth/:path*",
+    "/onboarding/:path*",
+    "/api/farm/:path*",
+    "/api/marketplace/:path*",
+    "/api/livestock-market/:path*",
   ],
 };

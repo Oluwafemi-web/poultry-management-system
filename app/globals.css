@@ -1,3 +1,66 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --as-ink: #0c1a12;
+  --as-forest: #143d2b;
+  --as-moss: #1f5c40;
+  --as-leaf: #3d8b65;
+  --as-mint: #a8e6c5;
+  --as-gold: #c9a227;
+  --as-mist: #eef4f0;
+  --as-paper: #f7faf8;
+  --as-line: #d5e3db;
+  --background: var(--as-paper);
+  --foreground: var(--as-ink);
+}
+
+@keyframes as-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes as-ken-burns {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes as-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.as-fade-up {
+  animation: as-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.as-fade-up-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.as-fade-up-delay-2 {
+  animation-delay: 0.24s;
+}
+
+.as-fade-up-delay-3 {
+  animation-delay: 0.36s;
+}
+
+.as-hero-media {
+  animation: as-ken-burns 12s ease-out both;
+}

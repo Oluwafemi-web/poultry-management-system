@@ -1,90 +1,433 @@
-// schema.prisma
-
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
+enum PlatformRole {
+  OWNER
+  MANAGER
+  WORKER
+  BUYER
+}
+
+enum FarmRole {
+  OWNER
+  MANAGER
+  WORKER
+}
+
+enum ModuleKey {
+  LIVESTOCK
+  FEED
+  MEDICINE
+  PRODUCTION
+  EMPLOYEES
+  EXPENSES
+  SALES
+  INVENTORY
+  SUPPLIERS
+  CUSTOMERS
+  HEALTH
+}
+
+enum CustomFieldEntity {
+  BATCH
+  ACTIVITY
+  INVENTORY
+  EMPLOYEE
+  LIVESTOCK
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+enum InventoryType {
+  FEED
+  MEDICINE
+  EQUIPMENT
+  OTHER
+}
+
+enum InventoryTxnType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+}
+
+enum ActivityType {
+  FEED
+  WATER
+  MORTALITY
+  ANIMALS_ADDED
+  ANIMALS_REMOVED
+  PRODUCTION
+  MEDICATION
+  VACCINATION
+  WEIGHT
+  OTHER
+}
+
+enum WageFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum FinancialType {
+  EXPENSE
+  REVENUE
+}
+
+enum ProductCategory {
+  FEED
+  MEDICINE
+  SUPPLEMENTS
+  EQUIPMENT
+  TOOLS
+  HOUSING
+  WATERING
+  FEEDING
+  SERVICES
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+}
+
 model User {
+  id            Int               @id @default(autoincrement())
+  name          String
+  email         String            @unique
+  password      String
+  platformRole  PlatformRole      @default(BUYER)
+  createdAt     DateTime          @default(now())
+  memberships   FarmMembership[]
+  activities    ActivityLog[]
+  employees     Employee[]
+  cart          Cart?
+  orders        Order[]
+  supplier      SupplierProfile?
+  inquiries     ListingInquiry[]  @relation("InquiryBuyer")
+  inquiryReplies ListingInquiryMessage[]
+}
+
+model Farm {
+  id           Int               @id @default(autoincrement())
+  name         String
+  farmTypes    String[]
+  location     String?
+  size         String?
+  workerCount  Int?
+  description  String?
+  onboarded    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  memberships  FarmMembership[]
+  modules      FarmModule[]
+  species      AnimalSpecies[]
+  customFields CustomFieldDef[]
+  batches      LivestockBatch[]
+  inventory    InventoryItem[]
+  activities   ActivityLog[]
+  employees    Employee[]
+  financials   FinancialTxn[]
+  listings     LivestockListing[]
+}
+
+model FarmMembership {
   id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      String
+  userId    Int
+  farmId    Int
+  role      FarmRole
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, farmId])
 }
 
-model FeedInventory {
-  id                  Int      @id @default(autoincrement())
-  feedType            String
-  bagsAvailable      Int
-  cost               Decimal
-  date               DateTime @default(now())
-  datePurchased      DateTime
-  formattedDate      String
-  bagsUsed           Int
-  bagsPurchased      Int      @default(0)
-  totalBagsUsed      Int      @default(0)
-  totalBagsPurchased Int      @default(0)
+model FarmModule {
+  id      Int       @id @default(autoincrement())
+  farmId  Int
+  module  ModuleKey
+  enabled Boolean   @default(true)
+  farm    Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, module])
 }
 
-model EggsInventory {
-  id                Int             @id @default(autoincrement())
-  quantity          Int
-  dateCollected     DateTime
-  formattedDate      String
-  crates            Int             @default(0)
-  pricePerCrate     Decimal
-  cratesAvailable   Int             @default(0)
-  eggsSales         EggsSales[]     @relation("EggsSalesInventory") // Added this line
+model AnimalSpecies {
+  id         Int              @id @default(autoincrement())
+  farmId     Int
+  name       String
+  farm       Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  categories AnimalCategory[]
+
+  @@unique([farmId, name])
 }
 
-model EggsSales {
-  id                  Int             @id @default(autoincrement())
-  eggsInventoryId     Int
-  cratesSold          Int
-  totalSaleAmount     Decimal
-  dateSold            DateTime        @default(now())
-  formattedDate      String
-  cratesAvailableBefore Int
-  cratesAvailableAfter  Int
-  eggsInventory       EggsInventory   @relation("EggsSalesInventory", fields: [eggsInventoryId], references: [id])
+model AnimalCategory {
+  id        Int            @id @default(autoincrement())
+  speciesId Int
+  name      String
+  isCustom  Boolean        @default(false)
+  species   AnimalSpecies  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  batches   LivestockBatch[]
+
+  @@unique([speciesId, name])
 }
 
-model BirdLog {
-  id             Int           @id @default(autoincrement())
-  date           DateTime      @default(now())
-  formattedDate  String
-  mortality      Int           @default(0) // Number of bird mortalities
-  birdsBought    Int           @default(0) // Number of birds bought
-  birdsAvailable Int           @default(0) // Number of birds currently available
-  birdExpense    BirdExpense[] // Relation to BirdExpense
+model CustomFieldDef {
+  id       Int               @id @default(autoincrement())
+  farmId   Int
+  entity   CustomFieldEntity
+  key      String
+  label    String
+  fieldType CustomFieldType  @default(TEXT)
+  options  String[]
+  required Boolean           @default(false)
+  farm     Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, entity, key])
 }
 
-model BirdExpense {
-  id        Int       @id @default(autoincrement())
-  date      DateTime  @default(now())
-  formattedDate      String
-  price     Float     // Price for the new set of birds
-  amount    Int       // Number of birds bought
-  birdLogId Int       // Foreign key to BirdLog
-  birdLog   BirdLog   @relation(fields: [birdLogId], references: [id], onDelete: Cascade)
+model LivestockBatch {
+  id          Int            @id @default(autoincrement())
+  farmId      Int
+  categoryId  Int
+  code        String
+  breed       String?
+  initialQty  Int
+  currentQty  Int
+  arrivalDate DateTime
+  avgWeight   Float?
+  location    String?
+  healthStatus String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  farm        Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  category    AnimalCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  activities  ActivityLog[]
+
+  @@unique([farmId, code])
 }
 
+model InventoryItem {
+  id                 Int             @id @default(autoincrement())
+  farmId             Int
+  type               InventoryType
+  name               String
+  unit               String          @default("kg")
+  quantity           Float           @default(0)
+  lowStockThreshold  Float           @default(0)
+  unitCost           Decimal         @default(0)
+  supplier           String?
+  metadata           Json?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  farm               Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  transactions       InventoryTxn[]
+}
 
+model InventoryTxn {
+  id        Int              @id @default(autoincrement())
+  itemId    Int
+  type      InventoryTxnType
+  quantity  Float
+  unitCost  Decimal?
+  notes     String?
+  date      DateTime         @default(now())
+  item      InventoryItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
 
-model Worker {
-  id          Int      @id @default(autoincrement())
+model ActivityLog {
+  id          Int           @id @default(autoincrement())
+  farmId      Int
+  batchId     Int?
+  type        ActivityType
+  date        DateTime      @default(now())
+  quantity    Float?
+  unit        String?
+  notes       String?
+  payload     Json?
+  createdById Int
+  createdAt   DateTime      @default(now())
+  farm        Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  batch       LivestockBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  createdBy   User          @relation(fields: [createdById], references: [id])
+}
+
+model Employee {
+  id              Int            @id @default(autoincrement())
+  farmId          Int
+  userId          Int?
+  name            String
+  roleTitle       String
+  contact         String?
+  startDate       DateTime       @default(now())
+  wage            Decimal
+  wageFrequency   WageFrequency  @default(MONTHLY)
+  responsibilities String?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  farm            Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payments        WagePayment[]
+}
+
+model WagePayment {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  amount     Decimal
+  paidAt     DateTime @default(now())
+  notes      String?
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model FinancialTxn {
+  id         Int           @id @default(autoincrement())
+  farmId     Int
+  type       FinancialType
+  category   String
+  amount     Decimal
+  date       DateTime      @default(now())
+  notes      String?
+  sourceType String?
+  sourceId   Int?
+  batchId    Int?
+  farm       Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+model SupplierProfile {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @unique
+  businessName String
+  location    String?
+  contact     String?
+  description String?
+  rating      Float     @default(0)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products    Product[]
+}
+
+model Product {
+  id          Int             @id @default(autoincrement())
+  supplierId  Int
   name        String
-  salary      Decimal
-  dateHired   DateTime @default(now())
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  category    ProductCategory
+  description String?
+  price       Decimal
+  unit        String          @default("unit")
+  stock       Int             @default(0)
+  imageUrl    String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  supplier    SupplierProfile @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
 }
 
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
 
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  cartId    Int
+  productId Int
+  quantity  Int     @default(1)
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  status     OrderStatus @default(PENDING)
+  total      Decimal
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  unitPrice Decimal
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model LivestockListing {
+  id          Int           @id @default(autoincrement())
+  farmId      Int
+  title       String
+  animalType  String
+  breed       String?
+  quantity    Int
+  age         String?
+  weight      String?
+  price       Decimal
+  location    String?
+  description String?
+  photos      String[]
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  farm        Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  inquiries   ListingInquiry[]
+}
+
+model ListingInquiry {
+  id         Int                     @id @default(autoincrement())
+  listingId  Int
+  buyerId    Int
+  subject    String?
+  createdAt  DateTime                @default(now())
+  listing    LivestockListing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer      User                    @relation("InquiryBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  messages   ListingInquiryMessage[]
+}
+
+model ListingInquiryMessage {
+  id         Int            @id @default(autoincrement())
+  inquiryId  Int
+  senderId   Int
+  body       String
+  createdAt  DateTime       @default(now())
+  inquiry    ListingInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  sender     User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}

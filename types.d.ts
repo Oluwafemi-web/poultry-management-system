@@ -1,21 +1,39 @@
-// types.d.ts
 import "next-auth";
-import { Session, JWT } from "next-auth";
-import { TypeScriptConfig } from "next/dist/server/config-shared";
+import { DefaultSession } from "next-auth";
+import { FarmRole, ModuleKey } from "@prisma/client";
 
-// Augmenting the JWT interface to include the id, email, and role properties
 declare module "next-auth" {
-  interface JWT {
-    id: string;
-    email: string;
-    role: string;
-  }
-
   interface Session {
     user: {
       id: string;
       email: string;
-      role: string;
-    };
+      name?: string | null;
+      platformRole: string;
+      farmId: number | null;
+      farmRole: FarmRole | null;
+      modules: ModuleKey[];
+      onboarded: boolean;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    platformRole: string;
+    farmId: number | null;
+    farmRole: FarmRole | null;
+    modules: ModuleKey[];
+    onboarded: boolean;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email: string;
+    name?: string | null;
+    platformRole: string;
+    farmId: number | null;
+    farmRole: FarmRole | null;
+    modules: ModuleKey[];
+    onboarded: boolean;
   }
 }
